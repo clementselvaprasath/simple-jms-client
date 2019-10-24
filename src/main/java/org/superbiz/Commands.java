@@ -34,8 +34,23 @@ import javax.naming.Context;
 import javax.naming.InitialContext;
 import javax.naming.NamingException;
 import java.util.Properties;
+import java.util.Random;
 
 public class Commands {
+    private static final char[] DATA = createData();
+    private static final int DATA_SIZE = 1024 * 1024 * 1; // 1 MiB
+
+    private static char[] createData() {
+        final char[] validChars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789".toCharArray();
+        final StringBuilder sb = new StringBuilder(DATA_SIZE);
+        final Random random = new Random();
+
+        for (int i = 0; i < DATA_SIZE; i++) {
+            sb.append(validChars[random.nextInt(validChars.length)]);
+        }
+
+        return sb.toString().toCharArray();
+    }
 
     @Command("consume")
     public void consume(@Required @Option("uri") final String uri,
@@ -112,6 +127,55 @@ public class Commands {
         } catch (JMSException e) {
             e.printStackTrace();
         }
+    }
+
+    @Command("produce-random")
+    public void produce(@Required @Option("uri") final String uri,
+                        @Required @Option("dest") final String destination,
+                        @Required @Option("message-size") final Integer payloadSize,
+                        @Required @Option("count") final Integer count,
+                        @Option("username") final String username,
+                        @Option("password") final String password) {
+
+        final ConnectionFactory cf = getConnectionFactory(uri);
+
+        try (final Connection conn = getConnection(cf, username, password);
+             final Session sess = conn.createSession(false, Session.AUTO_ACKNOWLEDGE)) {
+
+            conn.start();
+            Destination dest = getDestination(uri, destination);
+            final MessageProducer producer = sess.createProducer(dest);
+
+            for (int i = 0; i < count; i++) {
+                final String payload = createRandomPayload(payloadSize);
+                producer.send(sess.createTextMessage(payload));
+            }
+
+        } catch (JMSException e) {
+            e.printStackTrace();
+        }
+    }
+
+    private String createRandomPayload(final Integer payloadSize) {
+        final Random random = new Random();
+        final StringBuilder sb = new StringBuilder(payloadSize);
+        sb.append("*");
+
+        int remaining = payloadSize - 2;
+        while (remaining > 0) {
+            final int offset = random.nextInt(DATA.length);
+            if ((DATA.length - offset) > remaining) {
+                sb.append(DATA, offset, remaining);
+                remaining = 0;
+            } else {
+                System.out.println(String.format("Size: %d, offset: %d, length: %d, end %d", DATA.length, offset, (DATA.length - offset - 1), offset + (DATA.length - offset - 1)));
+                sb.append(DATA, offset, (DATA.length - offset));
+                remaining -= (DATA.length - offset);
+            }
+        }
+
+        sb.append("*");
+        return sb.toString();
     }
 
     private Connection getConnection(final ConnectionFactory cf, final String username, final String password) throws JMSException {

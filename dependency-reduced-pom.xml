@@ -85,7 +85,7 @@
     </dependency>
   </dependencies>
   <properties>
-    <version.activemq>5.15.8</version.activemq>
+    <version.activemq>5.15.10</version.activemq>
     <maven.compiler.source>1.8</maven.compiler.source>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <maven.compiler.target>1.8</maven.compiler.target>
